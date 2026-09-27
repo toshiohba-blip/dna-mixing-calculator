@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="DNA計算">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>DNA混合比率・容量計算</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#f3f4f6;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif}
+body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.container{width:min(100%,720px);margin:0 auto;padding:18px 16px 36px}
+header{margin-bottom:18px}
+h1{font-size:23px;line-height:1.35;margin:0 0 7px;font-weight:800}
+.subtitle{font-size:13px;color:#6b7280;line-height:1.5}
+.card{background:#fff;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 1px 5px rgba(0,0,0,.08)}
+.card h2{font-size:17px;margin:0 0 13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{margin-bottom:11px}
+label{display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:#374151}
+input,select{width:100%;font-size:17px;padding:12px 11px;border:1px solid #d1d5db;border-radius:10px;background:#fff;color:#111827}
+input:focus,select:focus{outline:2px solid #93c5fd;border-color:#2563eb}
+.unitrow{display:grid;grid-template-columns:1fr 112px;gap:8px}
+button{width:100%;border:0;border-radius:12px;padding:14px 16px;font-size:17px;font-weight:800;background:#2563eb;color:white;margin-top:3px}
+button:active{transform:scale(.99)}
+.secondary{background:#e5e7eb;color:#111827;margin-top:9px;font-size:15px}
+.result{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:13px;margin:9px 0}
+.result .label{font-size:12px;color:#4b5563;margin-bottom:3px}
+.result .value{font-size:20px;font-weight:800;word-break:break-word}
+.result small{display:block;color:#6b7280;margin-top:3px}
+.note{font-size:12px;line-height:1.55;color:#6b7280}
+.error{display:none;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;padding:11px;border-radius:10px;font-size:13px;margin:10px 0}
+.formula{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.7;background:#f9fafb;padding:10px;border-radius:9px;overflow:auto}
+.hidden{display:none}
+.footer{text-align:center;color:#9ca3af;font-size:11px;margin-top:18px}
+@media(max-width:430px){.grid{grid-template-columns:1fr}.unitrow{grid-template-columns:1fr 105px}h1{font-size:21px}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>DNA混合比率・容量計算</h1>
+<div class="subtitle">dsDNAのサイズと濃度から、指定したモル比で混合する容量を計算します。</div>
+</header>
+
+<div class="card">
+<h2>DNA A</h2>
+<div class="grid">
+<div class="field">
+<label for="aConc">濃度</label>
+<div class="unitrow">
+<input id="aConc" type="number" inputmode="decimal" step="any" min="0" placeholder="例：20">
+<select id="aUnit"><option value="ngul">ng/µL</option><option value="gl">g/L</option></select>
+</div>
+</div>
+<div class="field">
+<label for="aSize">サイズ (bp)</label>
+<input id="aSize" type="number" inputmode="numeric" step="1" min="1" placeholder="例：5000">
+</div>
+</div>
+</div>
+
+<div class="card">
+<h2>DNA B</h2>
+<div class="grid">
+<div class="field">
+<label for="bConc">濃度</label>
+<div class="unitrow">
+<input id="bConc" type="number" inputmode="decimal" step="any" min="0" placeholder="例：10">
+<select id="bUnit"><option value="ngul">ng/µL</option><option value="gl">g/L</option></select>
+</div>
+</div>
+<div class="field">
+<label for="bSize">サイズ (bp)</label>
+<input id="bSize" type="number" inputmode="numeric" step="1" min="1" placeholder="例：3000">
+</div>
+</div>
+</div>
+
+<div class="card">
+<h2>混合条件</h2>
+<div class="grid">
+<div class="field">
+<label for="ratio">DNA A : DNA B = 1 : N</label>
+<input id="ratio" type="number" inputmode="decimal" step="any" min="0" placeholder="例：2">
+</div>
+<div class="field">
+<label for="targetA">DNA A 目標量 (pmol)</label>
+<input id="targetA" type="number" inputmode="decimal" step="any" min="0" placeholder="例：1">
+</div>
+</div>
+<button type="button" id="calcBtn">計算実行</button>
+<button type="button" class="secondary" id="clearBtn">入力をクリア</button>
+<div id="error" class="error"></div>
+</div>
+
+<div id="results" class="card hidden">
+<h2>計算結果</h2>
+<div class="result">
+<div class="label">DNA A 濃度（モル濃度）</div>
+<div class="value" id="aMol"></div>
+<small>µM = pmol/µL</small>
+</div>
+<div class="result">
+<div class="label">DNA A 使用量</div>
+<div class="value" id="aVol"></div>
+<small id="aTargetNote"></small>
+</div>
+<div class="result">
+<div class="label">DNA B 必要量</div>
+<div class="value" id="bPmol"></div>
+<small>DNA A : DNA B の指定モル比に基づく</small>
+</div>
+<div class="result">
+<div class="label">DNA B 濃度（モル濃度）</div>
+<div class="value" id="bMol"></div>
+<small>µM = pmol/µL</small>
+</div>
+<div class="result">
+<div class="label">DNA B 使用量</div>
+<div class="value" id="bVol"></div>
+</div>
+<div class="result">
+<div class="label">合計使用量</div>
+<div class="value" id="totalVol"></div>
+</div>
+</div>
+
+<div class="card">
+<h2>計算式</h2>
+<div class="formula">
+分子量(g/mol) = bp × 660<br>
+モル濃度(µM) = 濃度(g/L) ÷ (bp × 660) × 10⁶<br>
+DNA A 使用量(µL) = A目標量(pmol) ÷ A濃度(µM)<br>
+DNA B 目標量(pmol) = A目標量 × N<br>
+DNA B 使用量(µL) = B目標量(pmol) ÷ B濃度(µM)
+</div>
+<p class="note">※ dsDNAの平均分子量を 660 g/mol/bp として計算しています。ng/µL と g/L は数値上同値です。</p>
+</div>
+
+<div class="footer">完全オフライン版・外部ライブラリ不使用</div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+function $(id){ return document.getElementById(id); }
+
+function formatNumber(x){
+  if (!Number.isFinite(x)) return "—";
+  if (x === 0) return "0";
+  if (Math.abs(x) >= 1000 || Math.abs(x) < 0.001) return x.toExponential(5);
+  return Number(x.toFixed(6)).toString();
+}
+
+function concentrationToGL(value, unit){
+  // 1 ng/µL = 1 g/L numerically
+  return value;
+}
+
+function getPositive(id, name){
+  const v = Number($(id).value);
+  if (!Number.isFinite(v) || v <= 0) throw new Error(name + "を0より大きい数値で入力してください。");
+  return v;
+}
+
+function calculate(){
+  $("error").style.display = "none";
+  $("results").classList.add("hidden");
+
+  try{
+    const aConcRaw = getPositive("aConc","DNA Aの濃度");
+    const bConcRaw = getPositive("bConc","DNA Bの濃度");
+    const aSize = getPositive("aSize","DNA Aのサイズ");
+    const bSize = getPositive("bSize","DNA Bのサイズ");
+    const ratio = getPositive("ratio","混合比のN");
+    const targetA = getPositive("targetA","DNA Aの目標量");
+
+    const aGL = concentrationToGL(aConcRaw, $("aUnit").value);
+    const bGL = concentrationToGL(bConcRaw, $("bUnit").value);
+
+    const aMol = aGL / (aSize * 660) * 1e6;
+    const bMol = bGL / (bSize * 660) * 1e6;
+
+    if (!(aMol > 0) || !(bMol > 0)) throw new Error("モル濃度を計算できません。入力値を確認してください。");
+
+    const aVol = targetA / aMol;
+    const bPmol = targetA * ratio;
+    const bVol = bPmol / bMol;
+    const totalVol = aVol + bVol;
+
+    $("aMol").textContent = formatNumber(aMol) + " µM";
+    $("aVol").textContent = formatNumber(aVol) + " µL";
+    $("aTargetNote").textContent = "目標量 " + formatNumber(targetA) + " pmol";
+    $("bPmol").textContent = formatNumber(bPmol) + " pmol";
+    $("bMol").textContent = formatNumber(bMol) + " µM";
+    $("bVol").textContent = formatNumber(bVol) + " µL";
+    $("totalVol").textContent = formatNumber(totalVol) + " µL";
+
+    $("results").classList.remove("hidden");
+    $("results").scrollIntoView({behavior:"smooth", block:"start"});
+  }catch(e){
+    $("error").textContent = e.message || "入力値を確認してください。";
+    $("error").style.display = "block";
+  }
+}
+
+function clearAll(){
+  ["aConc","aSize","bConc","bSize","ratio","targetA"].forEach(function(id){ $(id).value = ""; });
+  $("aUnit").value = "ngul";
+  $("bUnit").value = "ngul";
+  $("error").style.display = "none";
+  $("results").classList.add("hidden");
+}
+
+$("calcBtn").addEventListener("click", calculate);
+$("clearBtn").addEventListener("click", clearAll);
+
+// Enterキーでも計算
+document.querySelectorAll("input").forEach(function(el){
+  el.addEventListener("keydown", function(ev){
+    if(ev.key === "Enter") calculate();
+  });
+});
+
+// PWA service worker
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("./sw.js").catch(function(){});
+  });
+}
+})();
+</script>
+</body>
+</html>
